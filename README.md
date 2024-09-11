@@ -20,8 +20,11 @@ Currently, most educational institutions use either manually operated bells or f
 
 ## **Tech Stack:**
 •Hardware: ESP32 microcontroller, GSM module, buzzer.
+
 •Software:Arduino IDE for programming the ESP32.
+
 •Web Technologies: HTML, CSS, JavaScript for the mobile-accessible web interface.
+
 •Communication: HTTP server hosted on the ESP32, and GSM module for SMS confirmation of bell ringing.
 
 ## **My Contribution:**
