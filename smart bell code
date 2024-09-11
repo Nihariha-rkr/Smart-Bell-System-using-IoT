@@ -1,0 +1,180 @@
+#include <WiFi.h>
+#include <WebServer.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
+#include <time.h> // Add time.h library for time-related functions
+
+const char* ssid = "nihariha8248807194";
+const char* password = "nihariha8248807194@2004"; 
+
+const long utcOffsetInSeconds = 19800; // UTC+5:30 hours for Madurai
+time zone
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", utcOffsetInSeconds);
+
+WebServer server(80);
+int ledPin = 2; // GPIO2 for LED
+
+struct Alarm {
+int hour;
+int minute;
+bool set;
+};
+
+const int numAlarms = 20;
+Alarm alarms[numAlarms];
+
+void setup() {
+pinMode(ledPin, OUTPUT);
+
+
+Serial.begin(115200);
+
+// Connect to Wi-Fi
+WiFi.begin(ssid, password);
+while (WiFi.status() != WL_CONNECTED) {
+delay(1000);
+Serial.println("Connecting to WiFi...");
+}
+Serial.println("Connected to WiFi");
+
+// Start NTP time client
+timeClient.begin();
+
+// Print ESP32's IP address
+Serial.print("IP address: ");
+Serial.println(WiFi.localIP());
+
+// Start the web server
+server.on("/", HTTP_GET, handleRoot);
+server.on("/toggle", HTTP_GET, handleToggle);
+server.on("/setalarm", HTTP_POST, handleSetAlarm);
+server.begin();
+Serial.println("HTTP server started");
+
+// Initialize alarms
+for (int i = 0; i < numAlarms; ++i) {
+alarms[i].set = false;
+}
+ 
+// Print web server's IP address
+Serial.print("Web server IP address: ");
+Serial.println(WiFi.localIP());
+}
+
+void loop() {
+server.handleClient();
+timeClient.update(); // Update time from NTP server
+
+// Check if any alarm is set and if it's time to trigger the alarm
+for (int i = 0; i < numAlarms; ++i) {
+if (alarms[i].set && timeClient.getHours() == alarms[i].hour &&
+timeClient.getMinutes() == alarms[i].minute) {
+activateAlarm();
+}
+}
+
+// Check if LED has been activated for 5 seconds
+static unsigned long lastDeactivationTime = 0;
+if (millis() - lastDeactivationTime >= 5000) {
+deactivateAlarm();
+lastDeactivationTime = millis();
+}
+}
+
+void handleRoot() {
+String htmlContent = "<h1>ESP32 Alarm Clock</h1>";
+htmlContent += "<form method='post' action='/setalarm'>";
+for (int i = 0; i < numAlarms; ++i) {
+ 
+
+htmlContent += "Alarm " + String(i + 1) + " Time (HH:MM): <input
+type='text' name='hour" + String(i) + "' maxlength='2' size='2'> : <input
+type='text' name='minute" + String(i) + "' maxlength='2' size='2'><br>";
+}
+htmlContent += "<input type='submit' value='Set Alarms'>";
+htmlContent += "</form>";
+
+// Get current time and date
+timeClient.update();
+unsigned long epochTime = timeClient.getEpochTime();
+struct tm * timeInfo = localtime((const time_t *)&epochTime);
+char timeStr[10];
+strftime(timeStr, sizeof(timeStr), "%H:%M:%S", timeInfo);
+char dateStr[12];
+strftime(dateStr, sizeof(dateStr), "%d-%m-%Y", timeInfo); // Format:YYYY-MM-DD
+
+htmlContent += "<p>Current Time: ";
+htmlContent += timeStr;
+htmlContent += "</p>";
+
+htmlContent += "<p>Current Date: ";
+htmlContent += dateStr;
+htmlContent += "</p>";
+
+htmlContent += "<p>Alarms:</p>";
+for (int i = 0; i < numAlarms; ++i) {
+htmlContent += "<p>Alarm " + String(i + 1) + ": ";
+if (alarms[i].set) {
+ 
+
+htmlContent += "is set for " + formatTime(alarms[i].hour) + ":" +
+formatTime(alarms[i].minute);
+} else {
+htmlContent += "is not set";
+}
+htmlContent += "</p>";
+}
+
+htmlContent += "<p><a href='/toggle'><button>";
+if (digitalRead(ledPin) == HIGH) {
+htmlContent += "Turn Off LED";
+} else {
+htmlContent += "Turn On LED";
+}
+htmlContent += "</button></a></p>";
+server.send(200, "text/html", htmlContent);
+}
+
+void handleToggle() {
+toggleLED();
+server.sendHeader("Location", "/");
+server.send(303);
+}
+
+void handleSetAlarm() {
+for (int i = 0; i < numAlarms; ++i) {
+String hourArg = "hour" + String(i);
+String minuteArg = "minute" + String(i);
+if (server.hasArg(hourArg) && server.hasArg(minuteArg)) {
+ 
+
+alarms[i].hour = server.arg(hourArg).toInt();
+alarms[i].minute = server.arg(minuteArg).toInt();
+alarms[i].set = true;
+} else {
+alarms[i].set = false;
+}
+}
+server.sendHeader("Location", "/");
+server.send(303);
+}
+
+void toggleLED() {
+digitalWrite(ledPin, !digitalRead(ledPin));
+}
+
+void activateAlarm() {
+digitalWrite(ledPin, HIGH); // Turn on LED
+}
+
+void deactivateAlarm() {
+digitalWrite(ledPin, LOW); // Turn off LED
+}
+
+String formatTime(int time) {
+if (time < 10) {
+return "0" + String(time);
+}
+return String(time);
+}
