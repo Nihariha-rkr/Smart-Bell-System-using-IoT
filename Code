@@ -4,8 +4,8 @@
 #include <WiFiUdp.h>
 #include <time.h> // Add time.h library for time-related functions
 
-const char* ssid = "nihariha8248807194";
-const char* password = "nihariha8248807194@2004"; 
+const char* ssid = "Iphone";
+const char* password = "Nihariha"; 
 
 const long utcOffsetInSeconds = 19800; // UTC+5:30 hours for Madurai
 time zone
